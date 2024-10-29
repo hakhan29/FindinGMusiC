@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <title>FindinG MusiC</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: url('bg.png') no-repeat;
+            background-size: cover;
+        }
+
+        #gameStart {
+            position: absolute;
+            padding: 10px 20px;
+            font-size: 30px;
+            cursor: pointer;
+            right: 300px;
+            bottom: 30%;
+            transform: translateY(50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        #gameCanvas {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('bg_1.png');
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+
+        #imageSequence {
+            position: absolute;
+            width: 60%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 1s;
+            z-index: 20;
+        }
+
+        #character {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: url('Chara_1.png') no-repeat;
+            background-size: contain;
+            z-index: 10;
+        }
+
+        #interaction, #interaction2, #interaction3 {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            z-index: 9;
+        }
+
+        #interaction {
+            background-image: url('inst_1.png');
+            background-size: contain;
+            bottom: 300px;
+            left: 600px;
+        }
+
+        #interaction2 {
+            background-image: url('inst_2.png');
+            background-size: contain;
+            bottom: 500px;
+            left: 500px;
+        }
+
+        #interaction3 {
+            background-image: url('inst_3.png');
+            background-size: contain;
+            bottom: 650px;
+            left: 1000px;
+        }
+
+
+        #restartButton {
+            display: none;
+            position: absolute;
+            padding: 10px 20px;
+            font-size: 24px;
+            cursor: pointer;
+            right: 50%;
+            bottom: 50%;
+            transform: translate(50%, 50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            z-index: 25;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="gameStart">Game Start</button>
+
+    <div id="gameCanvas">
+        <img id="imageSequence" />
+        <div id="character"></div>
+        <div id="interaction"></div>
+        <div id="interaction2"></div>
+        <div id="interaction3"></div>
+        <div id="ground"></div>
+    </div>
+
+
+
+    <button id="restartButton">Restart</button>
+
+    <audio id="bgMusic1" src="song_1.mp3" loop></audio>
+    <audio id="bgMusic2" src="song_2.mp3" loop></audio>
+    <audio id="bgMusicBackground" src="bg.mp3" loop></audio>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+
+    <script>
+        window.onload = () => {
+        initCamera();
+    };
+        const gameStartButton = document.getElementById('gameStart');
+        const gameCanvas = document.getElementById('gameCanvas');
+        const imageSequence = document.getElementById('imageSequence');
+        const character = document.getElementById('character');
+        const interaction = document.getElementById('interaction');
+        const interaction2 = document.getElementById('interaction2');
+        const interaction3 = document.getElementById('interaction3');
+        const bgMusic1 = document.getElementById('bgMusic1');
+        const bgMusic2 = document.getElementById('bgMusic2');
+        const bgMusicBackground = document.getElementById('bgMusicBackground');
+        const restartButton = document.getElementById('restartButton');
+
+        const images = ['img1.png', 'img2.png', 'img3.png', 'img4.png', 'img5.png'];
+
+        const secimg1 = document.createElement('img');
+    secimg1.style.position = 'absolute';
+    secimg1.style.width = '50%';
+    secimg1.style.top = '50%';
+    secimg1.style.left = '50%';
+    secimg1.style.transform = 'translate(-50%, -50%)';
+    secimg1.style.transition = 'opacity 1s';
+    secimg1.style.display = 'none';
+    secimg1.style.zIndex = 20;
+    document.body.appendChild(secimg1);
+
+    const secimg2 = document.createElement('img');
+    secimg2.style.position = 'absolute';
+    secimg2.style.width = '50%';
+    secimg2.style.top = '50%';
+    secimg2.style.left = '50%';
+    secimg2.style.transform = 'translate(-50%, -50%)';
+    secimg2.style.transition = 'opacity 1s';
+    secimg2.style.display = 'none';
+    secimg2.style.zIndex = 20;
+    document.body.appendChild(secimg2);
+
+    const item1 = document.createElement('img');
+    item1.src = 'item1.png';
+    item1.style.position = 'absolute';
+    item1.style.width = '300px';
+    item1.style.top = '50%';
+    item1.style.left = '50%';
+    item1.style.transform = 'translate(-50%, -50%)';
+    item1.style.zIndex = 30;
+    item1.style.display = 'none';
+    document.body.appendChild(item1);
+
+    const item2 = document.createElement('img');
+    item2.src = 'item2.png';
+    item2.style.position = 'absolute';
+    item2.style.width = '300px';
+    item2.style.top = '50%';
+    item2.style.left = '50%';
+    item2.style.transform = 'translate(-50%, -50%)';
+    item2.style.zIndex = 29;
+    item2.style.display = 'none';
+    document.body.appendChild(item2);
+        let currentImageIndex = 0;
+        let charX = window.innerWidth / 2 - 150;
+        let charY = window.innerHeight - 350;
+        let canInteract = false;
+
+        bgMusicBackground.volume = 1.0;
+        bgMusic1.volume = 0;
+        bgMusic2.volume = 0;
+
+        const videoElement = document.createElement('video');
+        videoElement.style.display = 'none';
+        document.body.appendChild(videoElement);
+
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        async function initCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+            videoElement.play();
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({ image: videoElement });
+                },
+                width: 1280,
+                height: 720
+            });
+            camera.start();
+        }
+
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const hand = results.multiHandLandmarks[0];
+                const fingerX = hand[9].x * window.innerWidth;
+                const fingerY = hand[9].y * window.innerHeight;
+
+                charX = window.innerWidth - fingerX - 150;
+                charY = fingerY - 150;
+
+                character.style.left = `${charX}px`;
+                character.style.top = `${charY}px`;
+
+                checkInteractions();
+            }
+        }
+
+        function showNextImage() {
+            if (currentImageIndex < images.length) {
+                imageSequence.src = images[currentImageIndex];
+                imageSequence.style.opacity = 1;
+                setTimeout(() => {
+                    imageSequence.style.opacity = 0;
+                }, 5000);
+
+                currentImageIndex++;
+                setTimeout(showNextImage, 6000);
+            } else {
+                imageSequence.style.display = 'none';
+                canInteract = true;
+            }
+        }
+
+        function checkInteractions() {
+            if (charX >= 450 && charX <= 600 && charY >= window.innerHeight - 600 && charY <= window.innerHeight - 350) {
+                interactWithAudio(bgMusic1, interaction);
+            } else if (charX >= 350 && charX <= 500 && charY >= window.innerHeight - 800 && charY <= window.innerHeight - 550) {
+                interactWithAudio(bgMusic2, interaction2);
+            } else if (charX >= 850 && charX <= 1000 && charY >= window.innerHeight - 950 && charY <= window.innerHeight - 600) {
+                completeGame();
+            }
+        }
+
+        function interactWithAudio(audio, interactionElement) {
+            if (canInteract) {
+                let volumeInterval = setInterval(() => {
+                    if (audio.volume < 1.0) {
+                        audio.volume = Math.min(1.0, audio.volume + 0.05);
+                    } else {
+                        clearInterval(volumeInterval);
+                    }
+                }, 200);
+                interactionElement.style.display = 'none';
+            }
+        }
+
+        function completeGame() {
+           if (canInteract) {
+            gameCanvas.style.backgroundImage = 'url(bg_2.png)';
+            character.style.backgroundImage = 'url(Chara_2.png)';
+            interaction3.style.display = 'none';
+            setTimeout(() => {startNewStage();
+            }, 2000);
+
+
+            
+        }
+    }
+
+        gameStartButton.addEventListener('click', () => {
+            gameStartButton.style.display = 'none';
+            gameCanvas.style.display = 'block';
+            imageSequence.style.display = 'block';
+
+            bgMusicBackground.play();
+            bgMusic1.play();
+            bgMusic2.play();
+
+            showNextImage();
+            
+        });
+
+        restartButton.addEventListener('click', () => {
+            location.reload();
+        });
+
+       
+    let audioContext;
+    let microphone;
+    let analyser;
+    let dataArray;
+
+    let isMicrophoneStarted = false; 
+
+function startMicrophone() {
+    if (isMicrophoneStarted) return; 
+    isMicrophoneStarted = true; 
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        microphone = audioContext.createMediaStreamSource(stream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        microphone.connect(analyser);
+        updateOpacityBasedOnMic();
+    }).catch(error => {
+        console.error("마이크 권한을 가져오는 중 오류가 발생했습니다: ", error);
+    });
+}
+
+    function updateOpacityBasedOnMic() {
+    requestAnimationFrame(updateOpacityBasedOnMic); 
+    analyser.getByteFrequencyData(dataArray);
+    const volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+
+    const opacity = Math.max(1 - volume / 50, 0); 
+    item1.style.opacity = opacity;
+
+    if (opacity <= 0) {
+        clearStage();
+    }
+}
+   
+document.addEventListener('keydown', (event) => {
+    if (event.code === 'Space') {
+        let currentOpacity = parseFloat(item1.style.opacity) || 1; 
+        item1.style.opacity = Math.max(currentOpacity - 0.1, 0); 
+
+        if (item1.style.opacity <= 0) {
+            clearStage();
+        }
+    }
+});
+
+
+    function startNewStage() {
+        canInteract = false;
+    character.style.display = 'none';
+
+    secimg1.style.display = 'block';
+    secimg2.style.display = 'block';
+
+   
+    imageSequence.src = 'secimg1.png';
+    imageSequence.style.display = 'block';
+    imageSequence.style.opacity = 1;
+
+
+    setTimeout(() => {
+        imageSequence.style.opacity = 0;
+        setTimeout(() => {
+            imageSequence.src = 'secimg2.png';
+            imageSequence.style.opacity = 1;
+            setTimeout(() => {
+               imageSequence.style.opacity = 0;
+
+          
+                item1.style.display = 'block';
+                item2.style.display = 'block';
+                startMicrophone();
+            }, 5000);
+        }, 1000); 
+    }, 5000); 
+}
+
+    function clearStage() {
+  
+    item1.style.display = 'none';
+    item2.style.display = 'none';
+
+    imageSequence.src = 'edimg.png';
+    imageSequence.style.display = 'block';
+    imageSequence.style.opacity = 1;
+
+
+    setTimeout(() => {
+        imageSequence.style.opacity = 0;
+        setTimeout(() => {
+            imageSequence.src = 'edimg2.png';
+            imageSequence.style.opacity = 1;
+            setTimeout(() => {
+                restartButton.style.display = 'block'; 
+            }, 5000);
+        }, 1000); 
+    }, 5000); 
+}
+    </script>
+
+</body>
+</html>
